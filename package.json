@@ -1,29 +1,50 @@
 {
-  "name": "musion-post",
-  "version": "0.1.0",
-  "private": true,
+  "name": "musionpost",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gaya2212/Musion_Post.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/gaya2212/Musion_Post/issues"
+  },
+  "homepage": "https://github.com/gaya2212/Musion_Post#readme",
   "dependencies": {
-    "date-fns": "^4.4.0",
-    "lucide-react": "^1.21.0",
-    "next": "16.2.9",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "recharts": "^3.9.0"
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.0.0",
+    "@tanstack/react-query": "^5.101.2",
+    "framer-motion": "11",
+    "lucide-react": "^1.23.0",
+    "next": "15",
+    "posthog-js": "^1.396.6",
+    "react": "19",
+    "react-dom": "19",
+    "react-hook-form": "^7.80.0",
+    "resend": "^6.16.0",
+    "server-only": "^0.0.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.9",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "@shadcn/ui": "^0.0.4",
+    "@types/node": "^26.1.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.5.2",
+    "eslint": "^10.6.0",
+    "postcss": "^8.5.16",
+    "tailwindcss": "3.4",
+    "typescript": "^5.5"
   }
 }

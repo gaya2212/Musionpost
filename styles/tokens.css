@@ -1,0 +1,15 @@
+:root {
+  --color-canvas: #10141e;
+  --color-canvas-black: #0a0a0f;
+  --color-canvas-elevated: #12121f;
+  --color-gradient-cyan: #22d3ee;
+  --color-gradient-magenta: #f472b6;
+  --color-gradient-musion: linear-gradient(90deg, #22d3ee 0%, #ffffff 50%, #f472b6 100%);
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: white;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
