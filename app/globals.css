@@ -21,3 +21,45 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Motion system — .github/Claude.md rule 3 (glow pulse) and rule 4 (gradient shift).
+   CSS-only per spec: box-shadow/filter animation, not Lottie. */
+@keyframes glow-pulse {
+  0%,
+  100% {
+    transform: scale(0.95);
+    filter: brightness(0.9) drop-shadow(0 0 6px rgba(0, 207, 255, 0.35)) drop-shadow(0 0 14px rgba(255, 110, 180, 0.25));
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.05);
+    filter: brightness(1.15) drop-shadow(0 0 14px rgba(0, 207, 255, 0.6)) drop-shadow(0 0 26px rgba(255, 110, 180, 0.45));
+    opacity: 1;
+  }
+}
+
+.glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+@keyframes gradient-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.gradient-shift {
+  background-size: 200% 200%;
+  animation: gradient-shift 10s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-pulse,
+  .gradient-shift {
+    animation: none;
+  }
+}

@@ -11,6 +11,16 @@ export default {
         'gradient-cyan': 'var(--color-gradient-cyan)',
         'gradient-magenta': 'var(--color-gradient-magenta)',
         'gradient-musion': 'var(--color-gradient-musion)',
+        bg: 'var(--bg)',
+        'bg-elevated': 'var(--bg-elevated)',
+        'bg-section-alt': 'var(--bg-section-alt)',
+        'text-body': 'var(--text-body)',
+        'text-muted': 'var(--text-muted)',
+      },
+      backgroundImage: {
+        'grad-cyan': 'var(--grad-cyan)',
+        'grad-pink': 'var(--grad-pink)',
+        'grad-brand': 'var(--grad-brand)',
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'sans-serif'],

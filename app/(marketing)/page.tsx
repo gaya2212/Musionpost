@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Hero } from '@/components/marketing/Hero';
 import { WaitlistForm } from '@/components/shared/WaitlistForm';
 
 const stages = [
@@ -28,12 +29,6 @@ const stages = [
   },
 ];
 
-const reasons = [
-  'A single path through the production process',
-  'Human collaborators selected for fit and context',
-  'Clear next steps for artists and professionals',
-];
-
 const categories = [
   'Producers',
   'Mix engineers',
@@ -46,44 +41,7 @@ const categories = [
 export default function MarketingPage() {
   return (
     <main className="bg-canvas">
-      <section className="mx-auto flex max-w-6xl flex-col gap-10 px-6 py-16 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-12 lg:py-24">
-        <div className="max-w-2xl space-y-6">
-          <span className="inline-flex items-center rounded-full border border-cyan-400/40 bg-cyan-400/10 px-3 py-1 text-sm font-medium text-cyan-200">
-            Structured workflow, real people
-          </span>
-          <h1 className="font-display text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
-            Musion helps artists find the right people for each stage of a release.
-          </h1>
-          <p className="max-w-xl text-lg text-slate-300">
-            The platform matches artists with the collaborators they need, then keeps the work moving through a clear production path.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <a
-              href="#waitlist"
-              className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-200"
-            >
-              Join the waitlist
-            </a>
-            <a
-              href="#workflow"
-              className="rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:border-cyan-400/40 hover:text-cyan-200"
-            >
-              See the workflow
-            </a>
-          </div>
-        </div>
-
-        <div className="w-full max-w-md rounded-3xl border border-white/10 bg-canvas-elevated p-6 shadow-2xl shadow-black/20">
-          <p className="text-sm uppercase tracking-[0.25em] text-slate-400">How it works</p>
-          <div className="mt-5 space-y-4">
-            {reasons.map((reason) => (
-              <div key={reason} className="rounded-2xl border border-white/10 bg-canvas-black/80 p-4">
-                <p className="text-sm text-slate-200">{reason}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <Hero />
 
       <section id="workflow" className="mx-auto max-w-6xl px-6 py-16 sm:px-8 lg:px-12">
         <div className="mb-8 max-w-2xl">
