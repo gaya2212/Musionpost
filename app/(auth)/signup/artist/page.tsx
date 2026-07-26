@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { signupCredentialsSchema } from '@/lib/validation/auth';
 import { artistProfileSchema, budgetRangeValues, budgetRangeLabels } from '@/lib/validation/artist';
+import { AuthLayout } from '@/components/auth/AuthLayout';
+import { Input, Textarea } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Button } from '@/components/ui/Button';
 
 type ArtistFormState = {
   email: string;
@@ -29,6 +33,9 @@ const initialState: ArtistFormState = {
 };
 
 const steps = ['Account', 'Profile', 'Goals', 'Confirm'] as const;
+
+const labelClass = 'mb-1.5 block text-[13px] font-medium text-app-fg-1';
+const errorClass = 'mt-1.5 text-[12px] text-app-red';
 
 const issuesToFieldErrors = (issues: { path: PropertyKey[]; message: string }[]): FieldErrors =>
   Object.fromEntries(issues.map((issue) => [issue.path[0], issue.message])) as FieldErrors;
@@ -134,6 +141,17 @@ export default function ArtistSignupPage() {
       return;
     }
 
+    // Supabase returns a fake, non-persisted user (error is null, but
+    // identities is an empty array) when signUp() is called for an email
+    // that's already registered — anti-enumeration behavior, not a new
+    // account. Proceeding past this point would POST a made-up userId to
+    // the onboarding route and fail there with a confusing 403 instead.
+    if (data.user.identities?.length === 0) {
+      setFormError('An account with this email already exists. Sign in instead to finish setting up your profile.');
+      setIsSubmitting(false);
+      return;
+    }
+
     const response = await fetch('/api/onboarding/artist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -164,63 +182,57 @@ export default function ArtistSignupPage() {
   };
 
   return (
-    <div className="rounded-[1.75rem] border border-white/10 bg-canvas-black/70 p-6 shadow-2xl shadow-black/20 sm:p-8">
+    <AuthLayout
+      title="Welcome to the Musician Community."
+      subtitle="Tell us about yourself so we can personalize your experience."
+    >
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm uppercase tracking-[0.25em] text-cyan-200">Artist onboarding</p>
-          <h2 className="mt-2 font-display text-2xl font-semibold text-white">Set up your artist profile.</h2>
-        </div>
-        <div className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-300">
+        <h2 className="text-2xl font-extrabold text-app-fg-1">Set up your artist profile</h2>
+        <span className="shrink-0 rounded-app-pill border border-app-border px-3 py-1 text-[12px] font-medium text-app-fg-2">
           Step {step + 1} / {steps.length}
-        </div>
+        </span>
       </div>
 
-      <div className="mt-5 h-2 rounded-full bg-white/10">
-        <div className="h-2 rounded-full bg-cyan-400/70 transition-all" style={{ width: `${progress}%` }} />
+      <div className="mt-4 h-1.5 overflow-hidden rounded-app-pill bg-app-surface-2">
+        <div className="h-full rounded-app-pill bg-app-btn-gradient transition-all" style={{ width: `${progress}%` }} />
       </div>
 
       <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
         {step === 0 ? (
           <>
             <div>
-              <label htmlFor="email" className="mb-2 block text-sm font-medium text-slate-200">
+              <label htmlFor="email" className={labelClass}>
                 Email address
               </label>
-              <input
+              <Input
                 id="email"
                 value={form.email}
                 onChange={(event) => updateField('email', event.target.value)}
                 type="email"
+                inputSize="lg"
                 placeholder="you@example.com"
-                className="w-full rounded-2xl border border-white/10 bg-canvas-elevated/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40"
+                error={Boolean(fieldErrors.email)}
                 aria-invalid={Boolean(fieldErrors.email)}
                 aria-describedby={fieldErrors.email ? 'email-error' : undefined}
               />
-              {fieldErrors.email ? (
-                <p id="email-error" className="mt-2 text-sm text-rose-300" aria-live="polite">
-                  {fieldErrors.email}
-                </p>
-              ) : null}
+              {fieldErrors.email ? <p id="email-error" className={errorClass} aria-live="polite">{fieldErrors.email}</p> : null}
             </div>
             <div>
-              <label htmlFor="password" className="mb-2 block text-sm font-medium text-slate-200">
+              <label htmlFor="password" className={labelClass}>
                 Password
               </label>
-              <input
+              <Input
                 id="password"
                 value={form.password}
                 onChange={(event) => updateField('password', event.target.value)}
                 type="password"
+                inputSize="lg"
                 placeholder="Create a password"
-                className="w-full rounded-2xl border border-white/10 bg-canvas-elevated/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40"
+                error={Boolean(fieldErrors.password)}
                 aria-invalid={Boolean(fieldErrors.password)}
                 aria-describedby={fieldErrors.password ? 'password-error' : undefined}
               />
-              {fieldErrors.password ? (
-                <p id="password-error" className="mt-2 text-sm text-rose-300" aria-live="polite">
-                  {fieldErrors.password}
-                </p>
-              ) : null}
+              {fieldErrors.password ? <p id="password-error" className={errorClass} aria-live="polite">{fieldErrors.password}</p> : null}
             </div>
           </>
         ) : null}
@@ -228,61 +240,52 @@ export default function ArtistSignupPage() {
         {step === 1 ? (
           <>
             <div>
-              <label htmlFor="displayName" className="mb-2 block text-sm font-medium text-slate-200">
+              <label htmlFor="displayName" className={labelClass}>
                 Display name
               </label>
-              <input
+              <Input
                 id="displayName"
                 value={form.displayName}
                 onChange={(event) => updateField('displayName', event.target.value)}
+                inputSize="lg"
                 placeholder="Your artist name"
-                className="w-full rounded-2xl border border-white/10 bg-canvas-elevated/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40"
+                error={Boolean(fieldErrors.displayName)}
                 aria-invalid={Boolean(fieldErrors.displayName)}
                 aria-describedby={fieldErrors.displayName ? 'displayName-error' : undefined}
               />
-              {fieldErrors.displayName ? (
-                <p id="displayName-error" className="mt-2 text-sm text-rose-300" aria-live="polite">
-                  {fieldErrors.displayName}
-                </p>
-              ) : null}
+              {fieldErrors.displayName ? <p id="displayName-error" className={errorClass} aria-live="polite">{fieldErrors.displayName}</p> : null}
             </div>
             <div>
-              <label htmlFor="genres" className="mb-2 block text-sm font-medium text-slate-200">
+              <label htmlFor="genres" className={labelClass}>
                 Primary genres
               </label>
-              <input
+              <Input
                 id="genres"
                 value={form.genres}
                 onChange={(event) => updateField('genres', event.target.value)}
+                inputSize="lg"
                 placeholder="Indie, R&B, electronic"
-                className="w-full rounded-2xl border border-white/10 bg-canvas-elevated/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40"
+                error={Boolean(fieldErrors.primaryGenres)}
                 aria-invalid={Boolean(fieldErrors.primaryGenres)}
                 aria-describedby={fieldErrors.primaryGenres ? 'genres-error' : undefined}
               />
-              {fieldErrors.primaryGenres ? (
-                <p id="genres-error" className="mt-2 text-sm text-rose-300" aria-live="polite">
-                  {fieldErrors.primaryGenres}
-                </p>
-              ) : null}
+              {fieldErrors.primaryGenres ? <p id="genres-error" className={errorClass} aria-live="polite">{fieldErrors.primaryGenres}</p> : null}
             </div>
             <div>
-              <label htmlFor="location" className="mb-2 block text-sm font-medium text-slate-200">
+              <label htmlFor="location" className={labelClass}>
                 Location
               </label>
-              <input
+              <Input
                 id="location"
                 value={form.location}
                 onChange={(event) => updateField('location', event.target.value)}
+                inputSize="lg"
                 placeholder="Berlin, London, or remote"
-                className="w-full rounded-2xl border border-white/10 bg-canvas-elevated/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40"
+                error={Boolean(fieldErrors.location)}
                 aria-invalid={Boolean(fieldErrors.location)}
                 aria-describedby={fieldErrors.location ? 'location-error' : undefined}
               />
-              {fieldErrors.location ? (
-                <p id="location-error" className="mt-2 text-sm text-rose-300" aria-live="polite">
-                  {fieldErrors.location}
-                </p>
-              ) : null}
+              {fieldErrors.location ? <p id="location-error" className={errorClass} aria-live="polite">{fieldErrors.location}</p> : null}
             </div>
           </>
         ) : null}
@@ -290,33 +293,31 @@ export default function ArtistSignupPage() {
         {step === 2 ? (
           <>
             <div>
-              <label htmlFor="projectGoals" className="mb-2 block text-sm font-medium text-slate-200">
+              <label htmlFor="projectGoals" className={labelClass}>
                 What you are working on
               </label>
-              <textarea
+              <Textarea
                 id="projectGoals"
                 value={form.projectGoals}
                 onChange={(event) => updateField('projectGoals', event.target.value)}
                 placeholder="Describe the release, the sound, and the support you need."
-                className="min-h-32 w-full rounded-2xl border border-white/10 bg-canvas-elevated/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40"
+                className="min-h-32"
+                error={Boolean(fieldErrors.projectGoals)}
                 aria-invalid={Boolean(fieldErrors.projectGoals)}
                 aria-describedby={fieldErrors.projectGoals ? 'projectGoals-error' : undefined}
               />
-              {fieldErrors.projectGoals ? (
-                <p id="projectGoals-error" className="mt-2 text-sm text-rose-300" aria-live="polite">
-                  {fieldErrors.projectGoals}
-                </p>
-              ) : null}
+              {fieldErrors.projectGoals ? <p id="projectGoals-error" className={errorClass} aria-live="polite">{fieldErrors.projectGoals}</p> : null}
             </div>
             <div>
-              <label htmlFor="budgetRange" className="mb-2 block text-sm font-medium text-slate-200">
+              <label htmlFor="budgetRange" className={labelClass}>
                 Budget range
               </label>
-              <select
+              <Select
                 id="budgetRange"
                 value={form.budgetRange}
                 onChange={(event) => updateField('budgetRange', event.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-canvas-elevated/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40"
+                selectSize="lg"
+                error={Boolean(fieldErrors.budgetRange)}
                 aria-invalid={Boolean(fieldErrors.budgetRange)}
                 aria-describedby={fieldErrors.budgetRange ? 'budgetRange-error' : undefined}
               >
@@ -326,19 +327,15 @@ export default function ArtistSignupPage() {
                     {budgetRangeLabels[value]}
                   </option>
                 ))}
-              </select>
-              {fieldErrors.budgetRange ? (
-                <p id="budgetRange-error" className="mt-2 text-sm text-rose-300" aria-live="polite">
-                  {fieldErrors.budgetRange}
-                </p>
-              ) : null}
+              </Select>
+              {fieldErrors.budgetRange ? <p id="budgetRange-error" className={errorClass} aria-live="polite">{fieldErrors.budgetRange}</p> : null}
             </div>
           </>
         ) : null}
 
         {step === 3 ? (
-          <div className="rounded-3xl border border-white/10 bg-canvas-elevated/80 p-5 text-sm text-slate-300">
-            <p className="font-medium text-white">Confirm your details</p>
+          <div className="rounded-app-xl border border-app-border bg-app-surface-2 p-5 text-[13px] text-app-fg-2">
+            <p className="font-semibold text-app-fg-1">Confirm your details</p>
             <ul className="mt-4 space-y-2">
               <li>• Email: {form.email || '—'}</li>
               <li>• Artist name: {form.displayName || '—'}</li>
@@ -348,21 +345,17 @@ export default function ArtistSignupPage() {
               <li>• Budget range: {form.budgetRange ? budgetRangeLabels[form.budgetRange as keyof typeof budgetRangeLabels] : '—'}</li>
             </ul>
             {formError ? (
-              <p className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200" role="alert">
+              <p className="mt-4 rounded-app-md border border-app-red/30 bg-app-red/10 px-4 py-3 text-[13px] text-app-red" role="alert">
                 {formError}
               </p>
             ) : null}
             <div className="mt-5 flex flex-wrap gap-3">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-70"
-              >
+              <Button type="submit" variant="gradient" size="lg" disabled={isSubmitting}>
                 {isSubmitting ? 'Creating account…' : 'Create account'}
-              </button>
-              <button type="button" onClick={prevStep} className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:border-cyan-400/40 hover:text-cyan-200">
+              </Button>
+              <Button type="button" variant="secondary" size="lg" onClick={prevStep}>
                 Back
-              </button>
+              </Button>
             </div>
           </div>
         ) : null}
@@ -370,22 +363,14 @@ export default function ArtistSignupPage() {
 
       {step < 3 ? (
         <div className="mt-8 flex flex-wrap justify-between gap-3">
-          <button
-            type="button"
-            onClick={prevStep}
-            className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:border-cyan-400/40 hover:text-cyan-200"
-          >
+          <Button type="button" variant="secondary" size="lg" onClick={prevStep} disabled={step === 0}>
             Back
-          </button>
-          <button
-            type="button"
-            onClick={nextStep}
-            className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-200"
-          >
+          </Button>
+          <Button type="button" variant="gradient" size="lg" onClick={nextStep}>
             Continue
-          </button>
+          </Button>
         </div>
       ) : null}
-    </div>
+    </AuthLayout>
   );
 }

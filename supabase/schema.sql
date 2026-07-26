@@ -157,6 +157,11 @@ create table public.pro_profiles (
   portfolio_urls text[] not null default '{}',
   remote_ok boolean not null default true,
   verified_status verified_status not null default 'unverified',
+  -- Opt-in to the Musion Verified review queue (Section 10). Collected in
+  -- the pro onboarding wizard's step 5 checkbox and editable later from
+  -- settings/verification — distinct from verified_status, which reflects
+  -- an *outcome*, not a request to be considered.
+  verification_opt_in boolean not null default false,
   embedding vector(1536),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -297,6 +302,106 @@ create table public.messages (
 create index messages_thread_idx on public.messages(thread_id);
 create index messages_created_idx on public.messages(created_at desc);
 
+-- Realtime: messages must be added to the supabase_realtime publication or
+-- postgres_changes subscriptions on this table never fire client-side —
+-- this isn't the default for new tables.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages'
+  ) then
+    alter publication supabase_realtime add table public.messages;
+  end if;
+end $$;
+
+-- start_thread: the "message_threads_manage" RLS policy requires a
+-- thread_participants row to already reference a thread before
+-- that thread can be inserted — but thread_participants.thread_id has a
+-- foreign key requiring the thread to exist first. Neither insert order
+-- can satisfy both constraints from the client, so new direct threads are
+-- created through this SECURITY DEFINER function instead, which creates
+-- the thread and both participant rows atomically. Reuses an existing
+-- direct (non-project) thread between the two people if one already exists.
+create or replace function public.start_thread(other_profile_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  caller_id uuid := auth.uid();
+  existing_thread_id uuid;
+  new_thread_id uuid;
+begin
+  if caller_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if other_profile_id = caller_id then
+    raise exception 'Cannot start a thread with yourself';
+  end if;
+
+  if not exists (select 1 from public.profiles where id = other_profile_id) then
+    raise exception 'Recipient profile does not exist';
+  end if;
+
+  select mt.id into existing_thread_id
+  from public.message_threads mt
+  where mt.project_id is null
+    and exists (select 1 from public.thread_participants tp where tp.thread_id = mt.id and tp.profile_id = caller_id)
+    and exists (select 1 from public.thread_participants tp where tp.thread_id = mt.id and tp.profile_id = other_profile_id)
+    and (select count(*) from public.thread_participants tp where tp.thread_id = mt.id) = 2
+  limit 1;
+
+  if existing_thread_id is not null then
+    return existing_thread_id;
+  end if;
+
+  insert into public.message_threads default values returning id into new_thread_id;
+
+  insert into public.thread_participants (thread_id, profile_id)
+  values (new_thread_id, caller_id), (new_thread_id, other_profile_id);
+
+  return new_thread_id;
+end;
+$$;
+
+-- mark_thread_read: the "messages_update" policy only lets the
+-- *sender* update a message, so a recipient can never set read_at on a
+-- message sent to them under plain RLS. Adding a second permissive UPDATE
+-- policy would OR together with the sender policy and let any participant
+-- edit any column (including body) on someone else's message, not just
+-- read_at — so this is a SECURITY DEFINER function scoped to exactly the
+-- one column instead.
+create or replace function public.mark_thread_read(target_thread_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  caller_id uuid := auth.uid();
+begin
+  if caller_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not exists (
+    select 1 from public.thread_participants tp
+    where tp.thread_id = target_thread_id and tp.profile_id = caller_id
+  ) then
+    raise exception 'Not a participant in this thread';
+  end if;
+
+  update public.messages
+  set read_at = now()
+  where thread_id = target_thread_id
+    and sender_profile_id != caller_id
+    and read_at is null;
+end;
+$$;
+
 -- ----------------------------------------------------------------------------
 -- verified_credentials: Musion Verified (integration stubbed)
 -- ----------------------------------------------------------------------------
@@ -406,64 +511,140 @@ create policy "waitlist_entries: no read"
   on public.waitlist_entries for select
   using (false);
 
+-- Two SECURITY DEFINER helpers, used below to break the two recursion
+-- cycles this table set is prone to: projects <-> project_collaborators
+-- (each queried the other), and thread_participants querying itself. A
+-- SECURITY DEFINER function runs as its owner, which bypasses RLS by
+-- default (no FORCE ROW LEVEL SECURITY here), so a query inside it never
+-- re-enters policy evaluation on the table it reads. See
+-- supabase/migrations/20260728_rls_full_reset.sql for the incident this
+-- fixed (three prior attempts each targeted different policy names than
+-- whatever was actually deployed, so nothing was ever fully removed, and
+-- Postgres ORs every applicable policy together).
+create or replace function public.is_accepted_collaborator(p_project_id uuid, p_profile_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.project_collaborators pc
+    where pc.project_id = p_project_id
+    and pc.pro_profile_id = p_profile_id
+    and pc.status in ('accepted', 'completed')
+  );
+$$;
+
+create or replace function public.is_thread_participant(p_thread_id uuid, p_profile_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.thread_participants tp
+    where tp.thread_id = p_thread_id
+    and tp.profile_id = p_profile_id
+  );
+$$;
+
+-- Both helpers bypass RLS by design — without an explicit grant here,
+-- Postgres's default EXECUTE-to-PUBLIC on function creation would let
+-- anon call them directly via PostgREST's /rpc/ endpoint to probe
+-- collaborator/participant relationships they have no other access to.
+revoke execute on function public.is_accepted_collaborator(uuid, uuid) from public;
+revoke execute on function public.is_thread_participant(uuid, uuid) from public;
+grant execute on function public.is_accepted_collaborator(uuid, uuid) to authenticated;
+grant execute on function public.is_thread_participant(uuid, uuid) to authenticated;
+
 -- ------------------- projects -------------------
-create policy "projects: read own and public"
+-- artist_profile_id already equals auth.uid() for the owner, so the
+-- "manage" policy never needs to look at profiles at all. The
+-- collaborator check goes through is_accepted_collaborator() rather than a
+-- raw EXISTS on project_collaborators — that's the one change that
+-- actually matters for breaking the cycle described above.
+--
+-- Public-read checks projects.visibility (the project's own setting,
+-- defaults 'private'), not profiles.visibility (the artist's profile,
+-- defaults 'public') — every version of this policy back to the original
+-- schema checked the artist's profile instead, which exposed every
+-- private project belonging to an artist with a public profile.
+create policy "projects_select"
   on public.projects for select
   using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = projects.artist_profile_id
-      and (p.visibility = 'public' or p.id = auth.uid())
-    )
+    artist_profile_id = auth.uid()
+    or projects.visibility = 'public'
+    or public.is_accepted_collaborator(projects.id, auth.uid())
   );
 
-create policy "projects: manage own"
+create policy "projects_manage"
   on public.projects for all
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = projects.artist_profile_id
-      and p.id = auth.uid()
-    )
-  );
+  using (artist_profile_id = auth.uid())
+  with check (artist_profile_id = auth.uid());
 
 -- ------------------- project_stages -------------------
-create policy "project_stages: read project participants"
+-- Safe to query project_collaborators directly here: project_collaborators
+-- queries projects, and projects no longer queries project_collaborators
+-- directly (see above), so the chain terminates instead of cycling. Same
+-- projects.visibility fix as above — no profiles join needed once the
+-- check is against the project's own visibility column.
+create policy "project_stages_select"
   on public.project_stages for select
   using (
     exists (
       select 1 from public.projects p
-      join public.profiles artist on artist.id = p.artist_profile_id
       where p.id = project_stages.project_id
-      and (artist.id = auth.uid() or artist.visibility = 'public')
+      and (p.artist_profile_id = auth.uid() or p.visibility = 'public')
+    )
+    or exists (
+      select 1 from public.project_collaborators pc
+      where pc.project_id = project_stages.project_id
+      and pc.pro_profile_id = auth.uid()
+      and pc.status in ('accepted', 'completed')
     )
   );
 
-create policy "project_stages: manage own"
+create policy "project_stages_manage"
   on public.project_stages for all
   using (
     exists (
       select 1 from public.projects p
-      join public.profiles artist on artist.id = p.artist_profile_id
       where p.id = project_stages.project_id
-      and artist.id = auth.uid()
+      and p.artist_profile_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.projects p
+      where p.id = project_stages.project_id
+      and p.artist_profile_id = auth.uid()
     )
   );
 
 -- ------------------- project_collaborators -------------------
-create policy "project_collaborators: read own or project owner"
+create policy "project_collaborators_select"
   on public.project_collaborators for select
+  using (
+    pro_profile_id = auth.uid()
+    or exists (
+      select 1 from public.projects p
+      where p.id = project_collaborators.project_id
+      and p.artist_profile_id = auth.uid()
+    )
+  );
+
+create policy "project_collaborators_manage"
+  on public.project_collaborators for all
   using (
     exists (
       select 1 from public.projects p
       where p.id = project_collaborators.project_id
-      and (p.artist_profile_id = auth.uid() or project_collaborators.pro_profile_id = auth.uid())
+      and p.artist_profile_id = auth.uid()
     )
-  );
-
-create policy "project_collaborators: manage own"
-  on public.project_collaborators for all
-  using (
+  )
+  with check (
     exists (
       select 1 from public.projects p
       where p.id = project_collaborators.project_id
@@ -472,62 +653,67 @@ create policy "project_collaborators: manage own"
   );
 
 -- ------------------- matches -------------------
-create policy "matches: read own"
+create policy "matches_select"
   on public.matches for select
-  using (exists (
-    select 1 from public.projects p
-    where p.id = matches.project_id
-    and p.artist_profile_id = auth.uid()
-  ));
+  using (
+    exists (
+      select 1 from public.projects p
+      where p.id = matches.project_id
+      and p.artist_profile_id = auth.uid()
+    )
+    or matches.pro_profile_id = auth.uid()
+  );
 
-create policy "matches: manage own"
+create policy "matches_manage"
   on public.matches for all
-  using (exists (
-    select 1 from public.projects p
-    where p.id = matches.project_id
-    and p.artist_profile_id = auth.uid()
-  ));
-
--- ------------------- message_threads -------------------
-create policy "message_threads: read participant"
-  on public.message_threads for select
-  using (exists (
-    select 1 from public.thread_participants tp
-    where tp.thread_id = message_threads.id
-    and tp.profile_id = auth.uid()
-  ));
-
-create policy "message_threads: manage participant"
-  on public.message_threads for all
-  using (exists (
-    select 1 from public.thread_participants tp
-    where tp.thread_id = message_threads.id
-    and tp.profile_id = auth.uid()
-  ));
+  using (
+    exists (
+      select 1 from public.projects p
+      where p.id = matches.project_id
+      and p.artist_profile_id = auth.uid()
+    )
+  );
 
 -- ------------------- thread_participants -------------------
-create policy "thread_participants: read own"
+-- This table's own SELECT policy can't query itself — "can I see
+-- co-participant rows for threads I'm in" goes through the SECURITY
+-- DEFINER function instead of a self-join, which is what caused the
+-- direct single-table recursion this replaced.
+create policy "thread_participants_select"
   on public.thread_participants for select
-  using (profile_id = auth.uid());
+  using (public.is_thread_participant(thread_participants.thread_id, auth.uid()));
 
-create policy "thread_participants: manage own"
+create policy "thread_participants_manage"
   on public.thread_participants for all
-  using (profile_id = auth.uid());
+  using (profile_id = auth.uid())
+  with check (profile_id = auth.uid());
+
+-- ------------------- message_threads -------------------
+create policy "message_threads_select"
+  on public.message_threads for select
+  using (public.is_thread_participant(message_threads.id, auth.uid()));
+
+create policy "message_threads_manage"
+  on public.message_threads for all
+  using (public.is_thread_participant(message_threads.id, auth.uid()));
 
 -- ------------------- messages -------------------
-create policy "messages: read thread participant"
+create policy "messages_select"
   on public.messages for select
-  using (exists (
-    select 1 from public.thread_participants tp
-    where tp.thread_id = messages.thread_id
-    and tp.profile_id = auth.uid()
-  ));
+  using (public.is_thread_participant(messages.thread_id, auth.uid()));
 
-create policy "messages: insert own"
+-- with check must also require thread participation, not just sender
+-- identity — sender_profile_id = auth.uid() alone would let any
+-- authenticated user insert into any thread_id they can guess, whether or
+-- not they're actually in it.
+create policy "messages_insert"
   on public.messages for insert
-  with check (sender_profile_id = auth.uid());
+  with check (
+    sender_profile_id = auth.uid()
+    and public.is_thread_participant(messages.thread_id, auth.uid())
+  );
 
-create policy "messages: update own"
+create policy "messages_update"
   on public.messages for update
   using (sender_profile_id = auth.uid());
 

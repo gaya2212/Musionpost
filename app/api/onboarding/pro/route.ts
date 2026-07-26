@@ -24,8 +24,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { userId, email, displayName, location, proType, specialties, genres, rateRange, notableCredits, portfolioLinks } =
-    parsed.data;
+  const {
+    userId,
+    email,
+    displayName,
+    location,
+    proType,
+    specialties,
+    genres,
+    rateRange,
+    notableCredits,
+    portfolioLinks,
+    verificationInterest,
+  } = parsed.data;
 
   const admin = createAdminClient();
 
@@ -75,6 +86,7 @@ export async function POST(request: NextRequest) {
     notable_credits: notableCredits ? [{ note: notableCredits }] : [],
     rate_range: rateRange,
     portfolio_urls: portfolioLinks,
+    verification_opt_in: verificationInterest ?? false,
   });
 
   if (proProfileError) {

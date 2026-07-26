@@ -34,9 +34,19 @@ export function canTransition(
     return { ok: true };
   }
 
-  // Moving into an untouched stage requires every earlier stage to be
-  // completed or skipped first.
+  const fromIndex = STAGES.indexOf(from);
   const toIndex = STAGES.indexOf(to);
+
+  // Advancing to the immediate next stage completes `from` as part of the
+  // same move — that's the normal "mark complete and continue" action, and
+  // it's always legal regardless of whether `from` has been marked
+  // complete yet (that's what this transition is for).
+  if (toIndex === fromIndex + 1) {
+    return { ok: true };
+  }
+
+  // Anything further ahead is a skip: every stage up to and including
+  // `from` must already be completed or skipped first.
   const blockedBy = STAGES.slice(0, toIndex).find((stage) => {
     const status = statusOf(stage);
     return status !== 'completed' && status !== 'skipped';
@@ -50,4 +60,10 @@ export function canTransition(
   }
 
   return { ok: true };
+}
+
+/** Percentage of the six stages marked completed or skipped, rounded to the nearest integer. */
+export function computeProgress(currentStages: ProjectStage[]): number {
+  const resolved = currentStages.filter((s) => s.status === 'completed' || s.status === 'skipped').length;
+  return Math.round((resolved / STAGES.length) * 100);
 }

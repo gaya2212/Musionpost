@@ -2,6 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { RiUserVoiceLine, RiToolsLine, RiArrowRightLine } from '@remixicon/react';
+import { AuthLayout } from '@/components/auth/AuthLayout';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -15,45 +17,55 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="rounded-[1.75rem] border border-white/10 bg-canvas-black/70 p-6 shadow-2xl shadow-black/20 sm:p-8">
-      <div className="space-y-2">
-        <p className="text-sm uppercase tracking-[0.25em] text-cyan-200">Create your account</p>
-        <h2 className="font-display text-2xl font-semibold text-white">Choose how you will work with Musion.</h2>
-        <p className="text-sm text-slate-300">
-          Artists and professionals each follow a tailored onboarding flow.
-        </p>
-      </div>
+    <AuthLayout
+      title="Welcome to the Musician Community."
+      subtitle="Tell us about yourself so we can personalize your experience."
+    >
+      <h2 className="text-3xl font-extrabold text-app-fg-1">Get started now</h2>
+      <p className="mt-2 text-[15px] text-app-fg-2">Choose how you will work with Musion.</p>
 
       <div className="mt-8 grid gap-4">
         <button
           type="button"
           onClick={() => chooseRole('artist')}
-          className="rounded-3xl border border-cyan-400/20 bg-canvas-elevated/80 p-5 text-left transition hover:border-cyan-400/40 hover:bg-canvas-elevated"
+          className="group flex items-start gap-4 rounded-app-xl border border-app-border bg-app-surface p-5 text-left shadow-app-sm transition hover:border-app-primary hover:shadow-app-md"
         >
-          <p className="text-sm font-semibold text-white">I make music</p>
-          <p className="mt-2 text-sm text-slate-300">
-            Start with your goals, your sound, and the kind of support you want from collaborators.
-          </p>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-app-md bg-app-primary-light text-app-primary">
+            <RiUserVoiceLine size={20} />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-app-fg-1">I make music</p>
+            <p className="mt-1 text-[13px] text-app-fg-2">
+              Start with your goals, your sound, and the kind of support you want from collaborators.
+            </p>
+          </div>
+          <RiArrowRightLine size={18} className="mt-1 shrink-0 text-app-fg-3 transition group-hover:text-app-primary" />
         </button>
 
         <button
           type="button"
           onClick={() => chooseRole('pro')}
-          className="rounded-3xl border border-white/10 bg-canvas-elevated/80 p-5 text-left transition hover:border-cyan-400/40 hover:bg-canvas-elevated"
+          className="group flex items-start gap-4 rounded-app-xl border border-app-border bg-app-surface p-5 text-left shadow-app-sm transition hover:border-app-primary hover:shadow-app-md"
         >
-          <p className="text-sm font-semibold text-white">I work with artists</p>
-          <p className="mt-2 text-sm text-slate-300">
-            Share your services, your experience, and the work you want to take on.
-          </p>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-app-md bg-app-primary-light text-app-primary">
+            <RiToolsLine size={20} />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-app-fg-1">I work with artists</p>
+            <p className="mt-1 text-[13px] text-app-fg-2">
+              Share your services, your experience, and the work you want to take on.
+            </p>
+          </div>
+          <RiArrowRightLine size={18} className="mt-1 shrink-0 text-app-fg-3 transition group-hover:text-app-primary" />
         </button>
       </div>
 
-      <p className="mt-6 text-sm text-slate-400">
+      <p className="mt-8 text-[13px] text-app-fg-2">
         Already have an account?{' '}
-        <Link href="/login" className="font-medium text-cyan-200 transition hover:text-cyan-100">
+        <Link href="/login" className="font-semibold text-app-primary hover:text-app-primary-hover">
           Sign in
         </Link>
       </p>
-    </div>
+    </AuthLayout>
   );
 }

@@ -344,6 +344,7 @@ export type Database = {
           remote_ok: boolean;
           specialties: string[];
           updated_at: string;
+          verification_opt_in: boolean;
           verified_status: string;
         };
         Insert: {
@@ -359,6 +360,7 @@ export type Database = {
           remote_ok?: boolean;
           specialties?: string[];
           updated_at?: string;
+          verification_opt_in?: boolean;
           verified_status?: string;
         };
         Update: {
@@ -374,6 +376,7 @@ export type Database = {
           remote_ok?: boolean;
           specialties?: string[];
           updated_at?: string;
+          verification_opt_in?: boolean;
           verified_status?: string;
         };
         Relationships: [];
@@ -464,7 +467,16 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      start_thread: {
+        Args: { other_profile_id: string };
+        Returns: string;
+      };
+      mark_thread_read: {
+        Args: { target_thread_id: string };
+        Returns: undefined;
+      };
+    };
     Enums: Record<string, never>;
   };
 };

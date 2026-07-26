@@ -21,6 +21,15 @@ export const STAGE_LABELS: Record<Stage, string> = {
   community: 'Community',
 };
 
+export const STAGE_COLORS: Record<Stage, string> = {
+  ideation: 'var(--color-app-purple)',
+  recording: 'var(--color-app-primary)',
+  mixing_mastering: 'var(--color-app-cyan)',
+  promotion_design: 'var(--color-app-pink)',
+  distribution: 'var(--color-app-green)',
+  community: 'var(--color-app-yellow)',
+};
+
 export const STAGE_DESCRIPTIONS: Record<Stage, string> = {
   ideation: 'Shape the concept with producers and co-writers.',
   recording: 'Track your project with the right studio and engineer.',

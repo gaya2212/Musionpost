@@ -1,19 +1,27 @@
 import Link from 'next/link';
+import { RiMailCheckLine } from '@remixicon/react';
+import { AuthLayout } from '@/components/auth/AuthLayout';
+import { buttonClasses } from '@/components/ui/Button';
 
 export default function VerifyEmailPage() {
   return (
-    <div className="rounded-[1.75rem] border border-white/10 bg-canvas-black/70 p-6 shadow-2xl shadow-black/20 sm:p-8">
-      <div className="space-y-2">
-        <p className="text-sm uppercase tracking-[0.25em] text-cyan-200">Verify your email</p>
-        <h2 className="font-display text-2xl font-semibold text-white">Check your inbox.</h2>
-        <p className="text-sm text-slate-300">
-          We will send you a verification link after you create the account. Once it is confirmed, you can continue into the Musion workspace.
-        </p>
+    <AuthLayout
+      title="Almost there."
+      subtitle="One more step and you're in — confirm your email to unlock your Musion workspace."
+    >
+      <div className="flex h-12 w-12 items-center justify-center rounded-app-lg bg-app-primary-light text-app-primary">
+        <RiMailCheckLine size={22} />
       </div>
 
-      <div className="mt-8 rounded-3xl border border-white/10 bg-canvas-elevated/80 p-5 text-sm text-slate-300">
-        <p className="font-medium text-white">What happens next</p>
-        <ul className="mt-4 space-y-2">
+      <h2 className="mt-5 text-3xl font-extrabold text-app-fg-1">Check your inbox</h2>
+      <p className="mt-2 text-[15px] text-app-fg-2">
+        We&apos;ll send you a verification link after you create the account. Once it&apos;s confirmed, you can
+        continue into the Musion workspace.
+      </p>
+
+      <div className="mt-6 rounded-app-xl border border-app-border bg-app-surface-2 p-5 text-[13px] text-app-fg-2">
+        <p className="font-semibold text-app-fg-1">What happens next</p>
+        <ul className="mt-3 space-y-2">
           <li>• Open the verification email and confirm your address.</li>
           <li>• Return here to sign in and continue with your onboarding details.</li>
           <li>• Your profile will stay pending until verification is complete.</li>
@@ -21,13 +29,13 @@ export default function VerifyEmailPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-3">
-        <Link href="/login" className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-200">
+        <Link href="/login" className={buttonClasses('gradient', 'lg')}>
           Go to sign in
         </Link>
-        <Link href="/signup" className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:border-cyan-400/40 hover:text-cyan-200">
+        <Link href="/signup" className={buttonClasses('secondary', 'lg')}>
           Start again
         </Link>
       </div>
-    </div>
+    </AuthLayout>
   );
 }
